@@ -262,6 +262,15 @@
 
 <script>
 // ============================================================
+// CONFIGURACIÓN — pon aquí tu URL fija para que el dashboard
+// se autoconecte al abrir (útil para compartir por QR).
+// Si lo dejas vacío, el panel de conexión sigue funcionando
+// manualmente como antes.
+// ============================================================
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyw7XHoUMMUhE2L8gna5FdXCrlAZwVV9WKe6WQ_rELNpMfJzOwg52k0vQiZ7ibPRvx_Vw/exec';
+const DEFAULT_SHEET_NAME = ''; // ej: 'Stock' (déjalo vacío si tu Apps Script ya tiene el nombre fijo)
+
+// ============================================================
 // CONEXIÓN VÍA APPS SCRIPT WEB APP
 // El HTML hace un fetch() normal a la URL /exec de tu Web App,
 // que responde con un JSON: [{medio, stock, minimo, estado}, ...]
@@ -516,6 +525,20 @@ class Dashboard{
 }
 
 const dashboard = new Dashboard();
+
+// Auto-conexión si se configuró una URL fija arriba (modo "solo lectura" para QR)
+if (DEFAULT_SCRIPT_URL) {
+  document.getElementById('scriptUrl').value = DEFAULT_SCRIPT_URL;
+  document.getElementById('sheetName').value = DEFAULT_SHEET_NAME;
+  // Oculta solo los campos de configuración y el botón "Cargar datos",
+  // deja visible "Actualizar" y el check de auto-actualización
+  document.getElementById('scriptUrl').closest('.conn-group').classList.add('hidden');
+  document.getElementById('sheetName').closest('.conn-group').classList.add('hidden');
+  document.getElementById('btnLoad').classList.add('hidden');
+  dashboard.connect();
+  document.getElementById('autoRefresh').checked = true;
+  autoRefreshTimer = setInterval(() => dashboard.refresh(), 60000);
+}
 </script>
 </body>
 </html>
