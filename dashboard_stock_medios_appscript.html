@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock de Medios de Cultivo — En vivo</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+<style>
+  :root{
+    --bg-app:#0f1720;
+    --bg-header: linear-gradient(135deg,#0f3d3e 0%, #145c5e 55%, #1c7c73 100%);
+    --bg-card:#ffffff;
+    --bg-card-soft:#f6f9f8;
+    --radius:14px;
+    --gap:18px;
+    --text-primary:#12201c;
+    --text-secondary:#5c6b66;
+    --text-on-dark:#eafaf6;
+    --accent:#0f8a72;
+    --accent-soft:#d6f2ea;
+    --warn:#c98a1a;
+    --warn-soft:#fbedd2;
+    --danger:#c1453b;
+    --danger-soft:#fbe0dd;
+    --ok:#2f8f5b;
+    --border:#e6ebe9;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    background:var(--bg-app);
+    color:var(--text-primary);
+    padding:24px;
+  }
+  .dashboard-container{max-width:1360px;margin:0 auto;}
+
+  .dashboard-header{
+    background:var(--bg-header);
+    color:var(--text-on-dark);
+    padding:22px 26px;
+    border-radius:var(--radius);
+    margin-bottom:var(--gap);
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    gap:16px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.25);
+  }
+  .dashboard-header h1{font-size:21px;font-weight:700;margin:0;letter-spacing:0.2px;}
+  .dashboard-header p{margin:4px 0 0;font-size:12.5px;color:rgba(234,250,246,0.75);}
+  .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#5c6b66;}
+  .status-dot.live{background:#3ddc97;box-shadow:0 0 0 3px rgba(61,220,151,0.25);}
+  .status-dot.error{background:#e05b52;}
+
+  .conn-panel{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.18);padding:12px 14px;border-radius:10px;}
+  .conn-group{display:flex;flex-direction:column;gap:4px;}
+  .conn-group label{font-size:11px;color:rgba(255,255,255,0.72);letter-spacing:0.3px;}
+  .conn-group input{
+    padding:7px 10px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;
+    background:rgba(255,255,255,0.12);color:var(--text-on-dark);font-size:13px;min-width:230px;
+  }
+  .conn-group input::placeholder{color:rgba(234,250,246,0.5);}
+  .btn{
+    padding:8px 16px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;
+    background:#eafaf6;color:#0f3d3e;height:34px;align-self:flex-end;
+  }
+  .btn:hover{background:#fff;}
+  .btn.ghost{background:rgba(255,255,255,0.12);color:var(--text-on-dark);border:1px solid rgba(255,255,255,0.25);}
+  .conn-msg{font-size:12px;margin-top:2px;color:rgba(234,250,246,0.85);}
+  .conn-msg.error{color:#ffb3ab;}
+  .conn-check{display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.75);}
+
+  .filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:2px;}
+  .filter-group{display:flex;flex-direction:column;gap:4px;}
+  .filter-group label{font-size:11px;color:var(--text-secondary);letter-spacing:0.3px;}
+  .filter-group select, .filter-group input[type="text"]{
+    padding:7px 10px;border:1px solid var(--border);border-radius:8px;
+    background:#fff;color:var(--text-primary);font-size:13px;min-width:150px;
+  }
+
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:var(--gap);margin-bottom:var(--gap);}
+  .kpi-card{
+    background:var(--bg-card);border-radius:var(--radius);padding:18px 22px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.08);border-left:4px solid var(--accent);
+    position:relative;overflow:hidden;
+  }
+  .kpi-card.warn{border-left-color:var(--warn);}
+  .kpi-label{font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;font-weight:600;}
+  .kpi-value{font-size:30px;font-weight:800;color:var(--text-primary);line-height:1;}
+  .kpi-sub{font-size:12px;margin-top:6px;color:var(--text-secondary);}
+  .kpi-icon{position:absolute;right:14px;top:14px;font-size:22px;opacity:0.18;}
+
+  .chart-row{display:grid;grid-template-columns:1.3fr 1fr;gap:var(--gap);margin-bottom:var(--gap);}
+  .chart-container{background:var(--bg-card);border-radius:var(--radius);padding:20px 22px;box-shadow:0 1px 3px rgba(0,0,0,0.08);}
+  .chart-container h3{font-size:14px;font-weight:700;color:var(--text-primary);margin:0 0 14px;}
+  .chart-container canvas{max-height:280px;}
+
+  .alert-row{display:grid;grid-template-columns:1fr;gap:var(--gap);margin-bottom:var(--gap);}
+  .alert-list{background:var(--bg-card);border-radius:var(--radius);padding:18px 22px;box-shadow:0 1px 3px rgba(0,0,0,0.08);}
+  .alert-list h3{font-size:14px;font-weight:700;margin:0 0 12px;}
+  .alert-item{
+    display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;
+    margin-bottom:8px;font-size:13px;background:var(--warn-soft);
+  }
+  .alert-item:last-child{margin-bottom:0;}
+  .alert-item .tag{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:0.4px;background:var(--warn);color:#fff;}
+  .alert-empty{font-size:13px;color:var(--text-secondary);padding:8px 0;}
+
+  .table-section{background:var(--bg-card);border-radius:var(--radius);padding:20px 22px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow-x:auto;}
+  .table-section h3{font-size:14px;font-weight:700;margin:0 0 14px;}
+  .data-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .data-table thead th{
+    text-align:left;padding:10px 12px;border-bottom:2px solid var(--border);color:var(--text-secondary);
+    font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;cursor:pointer;user-select:none;
+  }
+  .data-table thead th:hover{color:var(--text-primary);background:var(--bg-card-soft);}
+  .data-table tbody td{padding:10px 12px;border-bottom:1px solid #f0f0f0;white-space:nowrap;}
+  .data-table tbody tr:hover{background:var(--bg-card-soft);}
+  .status-pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;display:inline-block;}
+  .status-ok{background:var(--accent-soft);color:var(--ok);}
+  .status-low{background:var(--warn-soft);color:var(--warn);}
+  .bar-mini{width:80px;height:8px;background:#eef2f0;border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px;}
+  .bar-mini-fill{height:100%;border-radius:4px;}
+
+  .empty-state{text-align:center;padding:60px 20px;color:#8ea69f;}
+  .empty-state h2{color:#cfe9e2;font-size:18px;margin-bottom:8px;}
+  .empty-state p{font-size:13px;max-width:480px;margin:0 auto;}
+
+  .dashboard-footer{text-align:center;color:#8ea69f;font-size:12px;padding:18px 0 4px;}
+  .dashboard-footer b{color:#cfe9e2;}
+  .hidden{display:none !important;}
+
+  @media (max-width:900px){
+    .chart-row{grid-template-columns:1fr;}
+    .kpi-row{grid-template-columns:repeat(2,1fr);}
+    .dashboard-header{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+<div class="dashboard-container">
+
+  <header class="dashboard-header">
+    <div>
+      <h1><span class="status-dot" id="statusDot"></span>🧫 Control de Stock — Medios de Cultivo</h1>
+      <p id="statusText">Sin conectar · pega la URL de tu Web App de Apps Script para empezar</p>
+    </div>
+    <div class="conn-panel">
+      <div class="conn-group">
+        <label>URL del Web App (Apps Script)</label>
+        <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+      </div>
+      <div class="conn-group">
+        <label>Nombre de la pestaña (opcional)</label>
+        <input type="text" id="sheetName" placeholder="Ej: Stock">
+      </div>
+      <button class="btn" id="btnLoad">Cargar datos</button>
+      <button class="btn ghost" id="btnRefresh">↻ Actualizar</button>
+      <div class="conn-check">
+        <input type="checkbox" id="autoRefresh"> Auto-actualizar cada 60s
+      </div>
+    </div>
+  </header>
+
+  <div id="connMsg" class="conn-msg" style="margin:-8px 0 14px; color:#cfe9e2;"></div>
+
+  <div id="emptyState" class="empty-state">
+    <h2>Conecta tu Google Sheet</h2>
+    <p>
+      1) En tu Sheet: <b>Extensiones → Apps Script</b>, pega el código del Web App (doGet) y despliégalo como <b>Aplicación web</b> ("Ejecutar como: Yo" / "Acceso: Cualquier persona").<br><br>
+      2) Pega aquí la URL que termina en <code>/exec</code>.<br><br>
+      3) Si tu hoja de stock no es la primera pestaña, escribe su nombre exacto (ej: "Stock").<br><br>
+      Estructura esperada por columnas: <b>A=Medio · B=Stock · C=Mínimo · D=Estado</b>.
+    </p>
+  </div>
+
+  <div id="dashboardContent" class="hidden">
+
+    <section class="filters" style="margin-bottom:var(--gap);">
+      <div class="filter-group">
+        <label>Buscar medio</label>
+        <input type="text" id="filterMedio" placeholder="Ej: PDA">
+      </div>
+      <div class="filter-group">
+        <label>Estado</label>
+        <select id="filterEstado">
+          <option value="">Todos</option>
+          <option value="ok">OK</option>
+          <option value="low">Reposición</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-icon">📦</div>
+        <div class="kpi-label">Medios monitoreados</div>
+        <div class="kpi-value" id="kpiTotal">0</div>
+        <div class="kpi-sub" id="kpiTotalSub">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">🧪</div>
+        <div class="kpi-label">Stock total</div>
+        <div class="kpi-value" id="kpiUnidades">0</div>
+        <div class="kpi-sub">Suma de unidades en todos los medios</div>
+      </div>
+      <div class="kpi-card warn">
+        <div class="kpi-icon">⚠️</div>
+        <div class="kpi-label">En reposición</div>
+        <div class="kpi-value" id="kpiBajo">0</div>
+        <div class="kpi-sub">Stock ≤ mínimo definido</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">✅</div>
+        <div class="kpi-label">% en regla</div>
+        <div class="kpi-value" id="kpiPct">0%</div>
+        <div class="kpi-sub" id="kpiPctSub">—</div>
+      </div>
+    </section>
+
+    <section class="chart-row">
+      <div class="chart-container">
+        <h3>Stock actual vs. mínimo por medio</h3>
+        <canvas id="chartStockMinimo"></canvas>
+      </div>
+      <div class="chart-container">
+        <h3>Composición del stock</h3>
+        <canvas id="chartComposicion"></canvas>
+      </div>
+    </section>
+
+    <section class="alert-row">
+      <div class="alert-list">
+        <h3>🔔 Medios en reposición</h3>
+        <div id="alertContainer"></div>
+      </div>
+    </section>
+
+    <section class="table-section">
+      <h3>Detalle por medio</h3>
+      <table class="data-table" id="dataTable">
+        <thead>
+          <tr>
+            <th data-key="medio">Medio de cultivo</th>
+            <th data-key="stock">Stock</th>
+            <th data-key="minimo">Mínimo</th>
+            <th data-key="estado">Estado</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <footer class="dashboard-footer">
+    Conectado en vivo vía Apps Script Web App · Última actualización: <b id="lastUpdate">—</b>
+  </footer>
+</div>
+
+<script>
+// ============================================================
+// CONEXIÓN VÍA APPS SCRIPT WEB APP
+// El HTML hace un fetch() normal a la URL /exec de tu Web App,
+// que responde con un JSON: [{medio, stock, minimo, estado}, ...]
+// Ver Code.gs para el script de Apps Script correspondiente.
+// ============================================================
+
+let autoRefreshTimer = null;
+
+async function loadFromAppsScript(scriptUrl, sheetName){
+  let url = scriptUrl.trim();
+  if (sheetName) {
+    url += (url.includes('?') ? '&' : '?') + 'sheet=' + encodeURIComponent(sheetName);
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  let res;
+  try {
+    res = await fetch(url, { signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado. Verifica la URL del Web App.');
+    throw new Error('No se pudo contactar el Web App. Revisa la URL y que el despliegue esté activo.');
+  } finally {
+    clearTimeout(timeout);
+  }
+  if (!res.ok){
+    throw new Error(`El Web App respondió con error HTTP ${res.status}. Revisa el despliegue en Apps Script.`);
+  }
+  const json = await res.json();
+  if (json && json.error){
+    throw new Error(json.error);
+  }
+  if (!Array.isArray(json)){
+    throw new Error('La respuesta del Web App no tiene el formato esperado (se esperaba un arreglo JSON).');
+  }
+  return json;
+}
+
+function parseSheetResponse(rows){
+  const data = [];
+  rows.forEach(r => {
+    if (!r.medio || String(r.medio).trim() === '') return;
+    const medio = String(r.medio).trim();
+    const stock = Number(r.stock) || 0;
+    const minimo = Number(r.minimo) || 0;
+    let estadoRaw = r.estado ? String(r.estado).trim().toUpperCase() : '';
+    if (!estadoRaw) estadoRaw = stock <= minimo ? 'REPOSICIÓN' : 'OK';
+    const estado = estadoRaw.includes('REPOS') || estadoRaw.includes('BAJO') ? 'low' : 'ok';
+    data.push({ medio, stock, minimo, estado, estadoRaw });
+  });
+  return data;
+}
+
+const COLORS = ["#0f8a72","#c98a1a","#3d6fb5","#c1453b","#7a5cc9","#2f8f5b","#b5623d","#4f9bb0","#1c7c73","#8a6d3b"];
+
+class Dashboard{
+  constructor(){
+    this.rawData = [];
+    this.filteredData = [];
+    this.sortKey = null;
+    this.sortAsc = true;
+    this.charts = {};
+    this.bindUI();
+  }
+
+  bindUI(){
+    document.getElementById('btnLoad').addEventListener('click', () => this.connect());
+    document.getElementById('btnRefresh').addEventListener('click', () => this.refresh());
+    document.getElementById('autoRefresh').addEventListener('change', (e) => {
+      if (e.target.checked){
+        autoRefreshTimer = setInterval(() => this.refresh(), 60000);
+      } else {
+        clearInterval(autoRefreshTimer);
+      }
+    });
+    ['filterMedio','filterEstado'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => this.applyFilters());
+    });
+    document.querySelectorAll('#dataTable thead th').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.key;
+        if (this.sortKey === key) this.sortAsc = !this.sortAsc;
+        else { this.sortKey = key; this.sortAsc = true; }
+        this.renderTable();
+      });
+    });
+  }
+
+  setStatus(state, text){
+    const dot = document.getElementById('statusDot');
+    dot.className = 'status-dot' + (state === 'live' ? ' live' : state === 'error' ? ' error' : '');
+    document.getElementById('statusText').textContent = text;
+  }
+
+  async connect(){
+    const urlInput = document.getElementById('scriptUrl').value;
+    const sheetName = document.getElementById('sheetName').value.trim();
+    if (!urlInput.trim()){
+      this.showMsg('Pega la URL de tu Web App de Apps Script primero.', true);
+      return;
+    }
+    this.scriptUrl = urlInput.trim();
+    this.sheetName = sheetName;
+    await this.refresh();
+  }
+
+  async refresh(){
+    if (!this.scriptUrl){
+      this.showMsg('Primero conecta tu Web App de Apps Script.', true);
+      return;
+    }
+    this.setStatus('loading', 'Cargando datos desde Apps Script…');
+    this.showMsg('Consultando el Web App…', false);
+    try{
+      const rows = await loadFromAppsScript(this.scriptUrl, this.sheetName);
+      this.rawData = parseSheetResponse(rows);
+      if (this.rawData.length === 0){
+        this.showMsg('La hoja cargó pero no se encontraron filas de datos. Revisa el nombre de la pestaña o el orden de columnas.', true);
+        this.setStatus('error', 'Conectado, sin datos');
+        return;
+      }
+      document.getElementById('emptyState').classList.add('hidden');
+      document.getElementById('dashboardContent').classList.remove('hidden');
+      this.showMsg(`Conectado · ${this.rawData.length} medios cargados.`, false);
+      this.setStatus('live', 'Conectado a Google Sheets');
+      document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('es-CO');
+      this.applyFilters();
+    } catch(err){
+      this.setStatus('error', 'Error de conexión');
+      this.showMsg('Error: ' + err.message, true);
+    }
+  }
+
+  showMsg(text, isError){
+    const el = document.getElementById('connMsg');
+    el.textContent = text;
+    el.className = 'conn-msg' + (isError ? ' error' : '');
+  }
+
+  applyFilters(){
+    const medio = document.getElementById('filterMedio').value.trim().toLowerCase();
+    const estado = document.getElementById('filterEstado').value;
+    this.filteredData = this.rawData.filter(r => {
+      if (medio && !r.medio.toLowerCase().includes(medio)) return false;
+      if (estado && r.estado !== estado) return false;
+      return true;
+    });
+    this.renderKPIs();
+    this.renderCharts();
+    this.renderAlerts();
+    this.renderTable();
+  }
+
+  renderKPIs(){
+    const d = this.filteredData;
+    const total = d.length;
+    const stockTotal = d.reduce((s,r) => s + r.stock, 0);
+    const bajo = d.filter(r => r.estado === 'low').length;
+    const pct = total > 0 ? Math.round(((total - bajo) / total) * 100) : 0;
+
+    document.getElementById('kpiTotal').textContent = total;
+    document.getElementById('kpiTotalSub').textContent = `de ${this.rawData.length} en la hoja`;
+    document.getElementById('kpiUnidades').textContent = stockTotal.toLocaleString('es-CO');
+    document.getElementById('kpiBajo').textContent = bajo;
+    document.getElementById('kpiPct').textContent = pct + '%';
+    document.getElementById('kpiPctSub').textContent = `${total - bajo} de ${total} medios en regla`;
+  }
+
+  renderCharts(){
+    const d = this.filteredData;
+    const labels = d.map(r => r.medio);
+    const stocks = d.map(r => r.stock);
+    const minimos = d.map(r => r.minimo);
+
+    if (this.charts.stock) this.charts.stock.destroy();
+    this.charts.stock = new Chart(document.getElementById('chartStockMinimo').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {label:'Stock actual', data: stocks, backgroundColor: labels.map((_,i)=> d[i].estado==='low' ? '#c98a1a' : '#0f8a72'), borderRadius:5, barPercentage:0.6},
+          {label:'Mínimo requerido', data: minimos, backgroundColor:'#d8dedb', borderRadius:5, barPercentage:0.6}
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:true,
+        plugins:{legend:{position:'bottom', labels:{boxWidth:12, font:{size:11}}}},
+        scales:{ x:{ ticks:{font:{size:10}}, grid:{display:false} }, y:{ beginAtZero:true, grid:{color:'#f0f2f1'} } }
+      }
+    });
+
+    if (this.charts.comp) this.charts.comp.destroy();
+    this.charts.comp = new Chart(document.getElementById('chartComposicion').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{ data: stocks, backgroundColor: labels.map((_,i)=>COLORS[i % COLORS.length]), borderWidth:2, borderColor:'#fff' }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:true, cutout:'62%',
+        plugins:{legend:{position:'bottom', labels:{boxWidth:10, font:{size:10.5}, padding:10}}}
+      }
+    });
+  }
+
+  renderAlerts(){
+    const cont = document.getElementById('alertContainer');
+    cont.innerHTML = '';
+    const alertas = this.filteredData.filter(r => r.estado === 'low').sort((a,b) => (a.stock - a.minimo) - (b.stock - b.minimo));
+    if (alertas.length === 0){
+      cont.innerHTML = '<div class="alert-empty">Sin medios en reposición con los filtros actuales. ✅</div>';
+      return;
+    }
+    alertas.forEach(r => {
+      const div = document.createElement('div');
+      div.className = 'alert-item';
+      div.innerHTML = `
+        <span><b>${r.medio}</b></span>
+        <span class="tag">REPOSICIÓN · ${r.stock} / mínimo ${r.minimo}</span>
+      `;
+      cont.appendChild(div);
+    });
+  }
+
+  renderTable(){
+    let d = [...this.filteredData];
+    if (this.sortKey){
+      d.sort((a,b) => {
+        let va = a[this.sortKey], vb = b[this.sortKey];
+        if (typeof va === 'string'){ va = va.toLowerCase(); vb = vb.toLowerCase(); }
+        if (va < vb) return this.sortAsc ? -1 : 1;
+        if (va > vb) return this.sortAsc ? 1 : -1;
+        return 0;
+      });
+    }
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    d.forEach(r => {
+      const pct = r.minimo > 0 ? Math.min(100, (r.stock / r.minimo) * 60) : 100;
+      const barColor = r.estado === 'low' ? '#c98a1a' : '#0f8a72';
+      const estadoLabel = r.estado === 'low' ? 'Reposición' : 'OK';
+      const estadoClass = r.estado === 'low' ? 'status-low' : 'status-ok';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.medio}</td>
+        <td><span class="bar-mini"><span class="bar-mini-fill" style="width:${pct}%; background:${barColor};"></span></span>${r.stock}</td>
+        <td>${r.minimo}</td>
+        <td><span class="status-pill ${estadoClass}">${estadoLabel}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+const dashboard = new Dashboard();
+</script>
+</body>
+</html>
